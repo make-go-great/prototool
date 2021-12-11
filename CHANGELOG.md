@@ -1,14 +1,21 @@
 # Changelog
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
 - No changes yet.
 
+## [1.10.1] - 2021-12-11
+
+- Fork to make-go-great group
+- Cherry pick m1 build from [hanksudo](https://github.com/hanksudo/prototool/tree/hotfix-m1-macos)
 
 ## [1.10.0] - 2020-05-19
+
 - Document all lint rules and their group memberships (#548)
 - Add walk-timeout command line flag (#545)
 - Fix directory structure example in Style Guide (#543)
@@ -17,30 +24,30 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Update Prototool to go 1.14 and protoc 3.11.0
 - Use a more stable build of Alpine as a base image
 - Fix minor typos in style guide (#535)
-- Added a regex check for a release candidate syntax in the protobuf version.  If it exists, remove the hyphen for the version portion of the URL (#515)
-
+- Added a regex check for a release candidate syntax in the protobuf version. If it exists, remove the hyphen for the version portion of the URL (#515)
 
 ## [1.9.0] - 2019-10-12
+
 - Updated dependencies for Go 1.13
 
-
 ## [1.8.0] - 2019-06-10
+
 - Update the default `protoc` version to `3.8.0`.
 - Parse updated `protoc` output for `3.8.0`.
 - Fix issue where there were an unbounded number of `protoc` calls were
   being executed.
 
-
 ## [1.7.0] - 2019-05-02
+
 - Fix issue where `config init --document` produced an invalid YAML file.
 - Dependency updates.
 
-
 ## [1.6.0] - 2019-04-05
+
 - Dynamically resolve `google.protobuf.Any` values for gRPC error details.
 
-
 ## [1.5.0] - 2019-04-03
+
 - Add linters for enum field and message field comments. These linters are not
   part of any lint group but can be manually added in a configuration file.
 - Add `--generate-ignores` flag to the `lint` command to print out the value
@@ -48,8 +55,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   migrating to a set of lint rules, usually a lint group.
 - Update the default version of `protoc` to `3.7.1`.
 
-
 ## [1.4.0] - 2019-03-19
+
 - Add concept of lint groups. The default lint group is named `uber1`. The lint
   group can be specified with the `lint.group` option.
 - New `uber2` lint group and associated V2 Style Guide representing the second
@@ -109,9 +116,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Unix domain sockets can now be specified for the `--address` flag of the
   `grpc` command via the prefix `unix://`.
 
-
 ## [1.3.0] - 2018-09-17
+
 ### Added
+
 - Accept `prototool.json` files for configuation in addition to
   `prototool.yaml` files.
 - Add `--config-data` flag.
@@ -119,43 +127,49 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   set the paths for where `protoc` is run and where the
   Well-Known Types are included from.
 
-
 ## [1.2.0] - 2018-08-29
+
 ### Added
+
 - Add `json` flag to `all`, `compile`, `format`, `generate` and `lint` commands.
 
-
 ## [1.1.0] - 2018-08-24
+
 ### Added
+
 - Add support for Homebrew builds.
 
-
 ## [1.0.0] - 2018-08-23
+
 - Initial release.
 
-
 ## [1.0.0-rc1] 2018-08-16
+
 ### Fixed
+
 - Fixed regression where `prototool version` did not output 'Git commit' and
   'Built'.
 
-
 ## [0.7.1] 2018-08-15
+
 ### Fixed
+
 - Fixed an issue where Golang `Mname=package` modifiers were being duplicated.
 
-
 ## [0.7.0] - 2018-08-09
+
 ### Changed
+
 - Move `protoc_includes` and `protoc_version` settings under `protoc` key.
 - Move `allow_unused_imports` to `protoc.allow_unused_imports`.
 - Move `protoc-url` global flag under the applicable commands: all,
   compile, format, gen, and lint.
 - Rename `gen` to `generate`.
 
-
 ## [0.6.0] - 2018-08-03
+
 ### Changed
+
 - Delete the ability to explicitly specify multiple files, and have the effect
   of one file being specified be the same as the former `--dir-mode`. See
   [#16](https://github.com/uber/prototool/issues/16) for more details.
@@ -172,17 +186,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Refactor `lint` configuration. See the documentation for details.
 - Refactor `format --no-rewrite` so that the previous default is now enabled via
   `format --fix`.
+
 ### Fixed
+
 - Fix `excludes` setting to correctly match file path prefixes.
 
-
 ## [0.5.0] - 2018-07-26
+
 ### Added
+
 - A linter to verify that no enum uses the option `allow_alias.`
 - The `--protoc-url` flag can now handle references to local protoc zip files
   as well as normal http references by handling urls of the form
   `file:///path/to/protoc.zip`.
+
 ### Changed
+
 - The formatter now prints primitive field options on the same line
   as the field.
 - The commands `binary-to-json`, `clean`, `descriptor-proto`, `download`,
@@ -204,16 +223,19 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   an error is returned.
 - The `prototool` binary package is moved under `internal`.
 
-
 ## [0.4.0] - 2018-06-22
+
 ### Added
+
 - A new command `prototool create` to auto-generate Protobuf files from a
   template. The generated files have the Protobuf package, `go_package`,
   `java_multiple_files`, `java_outer_classname`, and `java_package` values set
   depending on the location of your file and config settings. Make sure to
   update your Vim plugin setup as well if using the Vim integration. See the
   documentation for `prototool create` in the README.md for more details.
+
 ### Changed
+
 - The values for `java_multiple_files`, `java_outer_classname`, and
   `java_package` that pass lint by default now reflect what is expected
   by the Google Cloud APIs file structure. See
@@ -228,12 +250,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   semicolons at the end of RPCs if there are no RPC options, and always
   having a newline at the end of a file.
 
-
 ## [0.3.0] - 2018-06-14
+
 ### Added
+
 - Linters to verify that `java_multiple_files` and `java_outer_classname` are
   unset.
+
 ### Fixed
+
 - The formatting order now reflects
   https://cloud.google.com/apis/design/file_structure by moving the location
   of imports to be below syntax, package, and file options.
@@ -241,9 +266,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Packages that begin with a keyword no longer produce an error when using
   `prototool format` or `prototool lint`.
 
-
 ## [0.2.0] - 2018-05-29
+
 ### Added
+
 - A default lint rule to verify that a package is always declared.
 - A lint group `all` that contains all the lint rules, not just the default
   lint rules.
@@ -251,6 +277,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
   with the Harbormaster API.
 
 ### Fixed
+
 - `prototool init` will return an error if there is an existing prototool.yaml
   file instead of overwriting it.
 - Nested options are now properly printed out from `prototool format`.
@@ -259,12 +286,13 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Option keys with empty values are no longer printed out
   from `prototool format`.
 
-
 ## 0.1.0 - 2018-04-11
+
 ### Added
+
 - Initial release.
 
-[Unreleased]: https://github.com/uber/prototool/compare/v1.10.0...HEAD
+[unreleased]: https://github.com/uber/prototool/compare/v1.10.0...HEAD
 [1.10.0]: https://github.com/uber/prototool/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/uber/prototool/compare/v1.8.0...v1.9.0
 [1.8.0]: https://github.com/uber/prototool/compare/v1.7.0...v1.8.0
