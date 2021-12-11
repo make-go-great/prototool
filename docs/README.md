@@ -2,8 +2,7 @@
 
 [![MIT License][mit-img]][mit] [![GitHub Release][release-img]][release] [![Build Status][ci-img]][ci] [![Coverage Status][cov-img]][cov] [![Docker Image][docker-img]][docker] [![Homebrew Package][homebrew-img]][homebrew] [![AUR Package][aur-img]][aur]
 
-**Update:  We recommend checking out [Buf](https://github.com/bufbuild/buf), which is under active development.  There are a ton of docs for getting started, including for [migration from Prototool](https://buf.build/docs/migration-prototool).**
-
+**Update: We recommend checking out [Buf](https://github.com/bufbuild/buf), which is under active development. There are a ton of docs for getting started, including for [migration from Prototool](https://buf.build/docs/migration-prototool).**
 
 [Protobuf](https://developers.google.com/protocol-buffers) is one of the best interface description
 languages out there - it's widely adopted, and after over 15 years of use, it's practically
@@ -41,34 +40,34 @@ Protobuf file, or under a second for a larger number (500+) of Protobuf files.
 
 ## Table Of Contents
 
-  * [Installation](#installation)
-  * [Quick Start](#quick-start)
-  * [Full Example](#full-example)
-  * [Configuration](#configuration)
-  * [File Discovery](#file-discovery)
-  * [Command Overview](#command-overview)
-    * [prototool config init](#prototool-config-init)
-    * [prototool compile](#prototool-compile)
-    * [prototool generate](#prototool-generate)
-    * [prototool lint](#prototool-lint)
-    * [prototool format](#prototool-format)
-    * [prototool create](#prototool-create)
-    * [prototool files](#prototool-files)
-    * [prototool break check](#prototool-break-check)
-    * [prototool descriptor-set](#prototool-descriptor-set)
-    * [prototool grpc](#prototool-grpc)
-  * [Tips and Tricks](#tips-and-tricks)
-  * [Vim Integration](#vim-integration)
-  * [Stability](#stability)
-  * [Development](#development)
-  * [FAQ](#faq)
-  * [Special Thanks](#special-thanks)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Full Example](#full-example)
+- [Configuration](#configuration)
+- [File Discovery](#file-discovery)
+- [Command Overview](#command-overview)
+  - [prototool config init](#prototool-config-init)
+  - [prototool compile](#prototool-compile)
+  - [prototool generate](#prototool-generate)
+  - [prototool lint](#prototool-lint)
+  - [prototool format](#prototool-format)
+  - [prototool create](#prototool-create)
+  - [prototool files](#prototool-files)
+  - [prototool break check](#prototool-break-check)
+  - [prototool descriptor-set](#prototool-descriptor-set)
+  - [prototool grpc](#prototool-grpc)
+- [Tips and Tricks](#tips-and-tricks)
+- [Vim Integration](#vim-integration)
+- [Stability](#stability)
+- [Development](#development)
+- [FAQ](#faq)
+- [Special Thanks](#special-thanks)
 
 ## Installation
 
 Prototool can be installed on Mac OS X or Linux through a variety of methods.
 
-*See [install.md](install.md) for full instructions.*
+_See [install.md](install.md) for full instructions._
 
 ## Quick Start
 
@@ -113,7 +112,7 @@ lint:
   group: uber2
 ```
 
-*See [protoc.md](protoc.md) for how Prototool handles working with `protoc`.*
+_See [protoc.md](protoc.md) for how Prototool handles working with `protoc`._
 
 The command `prototool config init` will generate a config file in the current directory with the
 currently recommended options set.
@@ -220,7 +219,7 @@ options. There are three pre-configured groups of rules, the setting of which is
 The flag `--generate-ignores` will help with migrating to a given lint group by generating
 the configuration to ignore existing lint failures on a per-file basis.
 
-*See [lint.md](lint.md) for full instructions.*
+_See [lint.md](lint.md) for full instructions._
 
 ##### `prototool format`
 
@@ -238,7 +237,7 @@ actions:
 Create Protobuf files from a template. With the provided Vim integration, this will automatically
 create new files that pass lint when a new file is opened.
 
-*See [create.md](create.md) for full instructions.*
+_See [create.md](create.md) for full instructions._
 
 ##### `prototool files`
 
@@ -266,15 +265,14 @@ if there are any source or wire incompatible changes. Some notes on this command
   depend on beta packages, however both of these options are configurable in your `prototool.yaml`
   file.
 
-*See [breaking.md](breaking.md) for full instructions.*
+_See [breaking.md](breaking.md) for full instructions._
 
 ##### `prototool descriptor-set`
 
 Produce a serialized `FileDescriptorSet` for all Protobuf definitions. By default, the serialized
 `FileDescriptorSet` is printed to stdout. There are a few options:
 
-- `--include-imports, --include-source-info` are analagous to `protoc`'s `--include_imports,
-  --include_source_info` flags.
+- `--include-imports, --include-source-info` are analagous to `protoc`'s `--include_imports, --include_source_info` flags.
 - `--json` outputs the FileDescriptorSet as JSON instead of binary.
 - `-o` writes the `FileDescriptorSet` to the given output file path.
 - `--tmp` writes the `FileDescriptorset` to a temporary file and prints the file path.
@@ -324,7 +322,7 @@ Call a gRPC endpoint using a JSON input. What this does behind the scenes:
 - Uses the `FileDescriptorSet` to convert the resulting binary back to JSON, and prints it out for
   you.
 
-*See [grpc.md](grpc.md) for full instructions.*
+_See [grpc.md](grpc.md) for full instructions._
 
 ## Tips and Tricks
 
@@ -337,15 +335,6 @@ should follow some basic rules:
 - Have all Protobuf files in the same directory use the same `package`.
 - Do not use long-form `go_package` values, ie use `foopb`, not `github.com/bar/baz/foo;foopb`.
   This helps `prototool generate` do the best job.
-
-## Vim Integration
-
-This repository is a self-contained plugin for use with the
-[ALE Lint Engine](https://github.com/w0rp/ale). The Vim integration will currently compile, provide
-lint errors, do generation of your stubs, and format your files on save. It will also optionally
-create new files from a template when opened.
-
-*See [vim.md](vim.md) for full instructions.*
 
 ## Stability
 
@@ -392,21 +381,15 @@ contribution to Prototool's functionality:
 
 [mit-img]: http://img.shields.io/badge/License-MIT-blue.svg
 [mit]: https://github.com/uber/prototool/blob/master/LICENSE
-
 [release-img]: https://img.shields.io/github/release/uber/prototool/all.svg
 [release]: https://github.com/uber/prototool/releases
-
 [ci-img]: https://img.shields.io/buildkite/5faf32c23003786e641b9140ee98175b81c8bae973ae188415/dev.svg
 [ci]: https://buildkite.com/uberopensource/prototool
-
 [cov-img]: https://codecov.io/gh/uber/prototool/branch/dev/graph/badge.svg
 [cov]: https://codecov.io/gh/uber/prototool/branch/dev
-
 [docker-img]: https://img.shields.io/docker/pulls/uber/prototool.svg
 [docker]: https://hub.docker.com/r/uber/prototool
-
 [homebrew-img]: https://img.shields.io/homebrew/v/prototool.svg
 [homebrew]: https://formulae.brew.sh/formula/prototool
-
 [aur-img]: https://img.shields.io/aur/version/prototool-bin.svg
 [aur]: https://aur.archlinux.org/packages/prototool-bin
