@@ -22,13 +22,9 @@ package cmd
 
 import (
 	"bytes"
-	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -40,12 +36,9 @@ import (
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/uber/prototool/internal/cmd/testdata/grpc/gen/grpcpb"
 	"github.com/uber/prototool/internal/lint"
 	"github.com/uber/prototool/internal/settings"
 	"github.com/uber/prototool/internal/vars"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 func TestDownload(t *testing.T) {
@@ -1557,40 +1550,6 @@ func assertDescriptorSet(t *testing.T, expectSuccess bool, dirOrFile string, inc
 	assert.Equal(t, expectedNames, names)
 }
 
-func assertGRPC(t *testing.T, expectedExitCode int, expectedLinePrefixes string, filePath string, method string, jsonData string, extraFlags ...string) {
-	assertGRPCExclamationError(t, nil, expectedExitCode, expectedLinePrefixes, filePath, method, jsonData, extraFlags...)
-}
-
-func assertGRPCExclamationError(t *testing.T, exclamationError error, expectedExitCode int, expectedLinePrefixes string, filePath string, method string, jsonData string, extraFlags ...string) {
-	excitedTestCase := startExcitedTestCase(t, exclamationError)
-	defer excitedTestCase.Close()
-	assertDoStdin(t, strings.NewReader(jsonData), true, true, expectedExitCode, expectedLinePrefixes, append([]string{"grpc", filePath, "--address", excitedTestCase.Address(), "--method", method, "--stdin", "--connect-timeout", "500ms"}, extraFlags...)...)
-}
-
-// GRPC Server TLS assert
-func assertGRPCTLS(t *testing.T, expectedExitCode int, expectedLinePrefixes string, filePath string, method string, jsonData string, serverCrt string, serverKey string, caCrt string, extraFlags ...string) {
-	assertGRPCmTLS(t, expectedExitCode, expectedLinePrefixes, filePath, method, jsonData, serverCrt, serverKey, caCrt, "", "", "", extraFlags...)
-}
-
-// GRPC Mutual TLS assert
-func assertGRPCmTLS(t *testing.T, expectedExitCode int, expectedLinePrefixes string, filePath string, method string, jsonData string, serverCrt string, serverKey string, serverCaCert string, clientCert string, clientKey string, clientCaCert string, extraFlags ...string) {
-	var excitedTestCase *excitedTestCase
-	if clientCaCert != "" {
-		excitedTestCase = startmTLSExcitedTestCase(t, serverCrt, serverKey, clientCaCert)
-	} else {
-		excitedTestCase = startTLSExcitedTestCase(t, serverCrt, serverKey)
-	}
-	defer excitedTestCase.Close()
-	args := []string{"grpc", filePath, "--address", excitedTestCase.Address(), "--method", method, "--stdin", "--connect-timeout", "500ms"}
-	if serverCaCert != "" {
-		args = append(args, "--cacert", serverCaCert, "--tls")
-	}
-	if clientCert != "" {
-		args = append(args, "--cert", clientCert, "--key", clientKey)
-	}
-	assertDoStdin(t, strings.NewReader(jsonData), true, true, expectedExitCode, expectedLinePrefixes, append(args, extraFlags...)...)
-}
-
 func assertRegexp(t *testing.T, withCachePath bool, extraErrorFormat bool, expectedExitCode int, expectedRegexp string, args ...string) {
 	stdout, exitCode := testDo(t, withCachePath, extraErrorFormat, args...)
 	assert.Equal(t, expectedExitCode, exitCode)
@@ -1603,10 +1562,6 @@ func assertExact(t *testing.T, withCachePath bool, extraErrorFormat bool, expect
 	stdout, exitCode := testDo(t, withCachePath, extraErrorFormat, args...)
 	assert.Equal(t, expectedExitCode, exitCode)
 	assert.Equal(t, expectedStdout, stdout)
-}
-
-func assertDoStdin(t *testing.T, stdin io.Reader, withCachePath bool, extraErrorFormat bool, expectedExitCode int, expectedLinePrefixes string, args ...string) {
-	assertDoInternal(t, stdin, withCachePath, extraErrorFormat, expectedExitCode, expectedLinePrefixes, args...)
 }
 
 func assertDo(t *testing.T, withCachePath bool, extraErrorFormat bool, expectedExitCode int, expectedLinePrefixes string, args ...string) {
@@ -1631,131 +1586,6 @@ func getCleanLines(output string) []string {
 		lines = append(lines, line)
 	}
 	return lines
-}
-
-type excitedTestCase struct {
-	listener      net.Listener
-	grpcServer    *grpc.Server
-	excitedServer *excitedServer
-}
-
-func startTLSExcitedTestCase(t *testing.T, serverCert string, serverKey string) *excitedTestCase {
-	creds, err := credentials.NewServerTLSFromFile(serverCert, serverKey)
-	require.NoError(t, err)
-	grpcServer := grpc.NewServer(grpc.Creds(creds))
-	return startExcitedTestCaseWithServer(t, nil, grpcServer)
-}
-
-func startmTLSExcitedTestCase(t *testing.T, serverCert string, serverKey string, clientCaCerts string) *excitedTestCase {
-	certificate, err := tls.LoadX509KeyPair(serverCert, serverKey)
-	require.NoError(t, err)
-
-	// Create a certificate pool from the certificate authority
-	certPool := x509.NewCertPool()
-	ca, err := ioutil.ReadFile(clientCaCerts)
-	require.NoError(t, err)
-
-	// Append the client certificates from the CA
-	if ok := certPool.AppendCertsFromPEM(ca); !ok {
-		require.NoError(t, err)
-	}
-	// Create the TLS credentials
-	creds := credentials.NewTLS(&tls.Config{
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		Certificates: []tls.Certificate{certificate},
-		ClientCAs:    certPool,
-	})
-	grpcServer := grpc.NewServer(grpc.Creds(creds))
-	return startExcitedTestCaseWithServer(t, nil, grpcServer)
-}
-
-func startExcitedTestCase(t *testing.T, exclamationError error) *excitedTestCase {
-	return startExcitedTestCaseWithServer(t, exclamationError, grpc.NewServer())
-}
-
-func startExcitedTestCaseWithServer(t *testing.T, exclamationError error, grpcServer *grpc.Server) *excitedTestCase {
-	listener, err := getFreeListener()
-	require.NoError(t, err)
-	excitedServer := newExcitedServer(exclamationError)
-	grpcpb.RegisterExcitedServiceServer(grpcServer, excitedServer)
-	go func() { _ = grpcServer.Serve(listener) }()
-	return &excitedTestCase{
-		listener:      listener,
-		grpcServer:    grpcServer,
-		excitedServer: excitedServer,
-	}
-}
-
-func (c *excitedTestCase) Address() string {
-	if c.listener == nil {
-		return ""
-	}
-	return c.listener.Addr().String()
-}
-
-func (c *excitedTestCase) Close() {
-	if c.grpcServer != nil {
-		c.grpcServer.Stop()
-	}
-}
-
-type excitedServer struct {
-	exclamationError error
-}
-
-func newExcitedServer(exclamationError error) *excitedServer {
-	return &excitedServer{
-		exclamationError: exclamationError,
-	}
-}
-
-func (s *excitedServer) Exclamation(ctx context.Context, request *grpcpb.ExclamationRequest) (*grpcpb.ExclamationResponse, error) {
-	if s.exclamationError != nil {
-		return nil, s.exclamationError
-	}
-	return &grpcpb.ExclamationResponse{
-		Value: request.Value + "!",
-	}, nil
-}
-
-func (s *excitedServer) ExclamationClientStream(streamServer grpcpb.ExcitedService_ExclamationClientStreamServer) error {
-	value := ""
-	for request, err := streamServer.Recv(); err != io.EOF; request, err = streamServer.Recv() {
-		if err != nil {
-			return err
-		}
-		value += request.Value
-	}
-	return streamServer.SendAndClose(&grpcpb.ExclamationResponse{
-		Value: value + "!",
-	})
-}
-
-func (s *excitedServer) ExclamationServerStream(request *grpcpb.ExclamationRequest, streamServer grpcpb.ExcitedService_ExclamationServerStreamServer) error {
-	for _, c := range request.Value {
-		if err := streamServer.Send(&grpcpb.ExclamationResponse{
-			Value: string(c),
-		}); err != nil {
-			return err
-		}
-	}
-	return streamServer.Send(&grpcpb.ExclamationResponse{
-		Value: "!",
-	})
-}
-
-func (s *excitedServer) ExclamationBidiStream(streamServer grpcpb.ExcitedService_ExclamationBidiStreamServer) error {
-	for request, err := streamServer.Recv(); err != io.EOF; request, err = streamServer.Recv() {
-		if err != nil {
-			return err
-		}
-		if err := streamServer.Send(&grpcpb.ExclamationResponse{
-			Value: request.Value + "!",
-		}); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // do not use these in tests
@@ -1791,12 +1621,4 @@ func testDoInternal(stdin io.Reader, withCachePath bool, extraErrorFormat bool, 
 	// develMode is on, so we have access to all commands
 	exitCode := do(true, args, stdin, buffer, buffer)
 	return strings.TrimSpace(buffer.String()), exitCode
-}
-
-func getFreeListener() (net.Listener, error) {
-	address, err := net.ResolveTCPAddr("tcp", "127.0.0.1:0")
-	if err != nil {
-		return nil, err
-	}
-	return net.ListenTCP("tcp", address)
 }
