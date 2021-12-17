@@ -22,7 +22,6 @@ package exec
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -36,26 +35,15 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb"
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
-	"github.com/uber/prototool/internal/breaking"
 	"github.com/uber/prototool/internal/cfginit"
 	"github.com/uber/prototool/internal/create"
-	"github.com/uber/prototool/internal/desc"
-	"github.com/uber/prototool/internal/extract"
 	"github.com/uber/prototool/internal/file"
-	"github.com/uber/prototool/internal/git"
 	"github.com/uber/prototool/internal/protoc"
-	"github.com/uber/prototool/internal/reflect"
 	"github.com/uber/prototool/internal/settings"
 	"github.com/uber/prototool/internal/text"
 	"github.com/uber/prototool/internal/vars"
-	"go.uber.org/multierr"
 	"go.uber.org/zap"
 )
-
-var jsonpbMarshaler = &jsonpb.Marshaler{}
 
 type runner struct {
 	protoSetProvider file.ProtoSetProvider
@@ -103,23 +91,6 @@ func newRunner(workDirPath string, input io.Reader, output io.Writer, options ..
 	}
 	runner.protoSetProvider = file.NewProtoSetProvider(protoSetProviderOptions...)
 	return runner
-}
-
-func (r *runner) cloneForWorkDirPath(workDirPath string) *runner {
-	return &runner{
-		protoSetProvider: r.protoSetProvider,
-		workDirPath:      workDirPath,
-		input:            r.input,
-		output:           r.output,
-		logger:           r.logger,
-		cachePath:        r.cachePath,
-		configData:       r.configData,
-		protocBinPath:    r.protocBinPath,
-		protocWKTPath:    r.protocWKTPath,
-		protocURL:        r.protocURL,
-		errorFormat:      r.errorFormat,
-		json:             r.json,
-	}
 }
 
 func (r *runner) Version() error {
@@ -270,14 +241,6 @@ func (r *runner) compile(doGen bool, doFileDescriptorSet bool, dryRun bool, meta
 	return r.doCompile(compiler, meta)
 }
 
-func (r *runner) compileFullControl(includeImports bool, includeSourceInfo bool, meta *meta) (protoc.FileDescriptorSets, error) {
-	compiler, err := r.newCompiler(false, false, true, includeImports, includeSourceInfo)
-	if err != nil {
-		return nil, err
-	}
-	return r.doCompile(compiler, meta)
-}
-
 func (r *runner) doCompile(compiler protoc.Compiler, meta *meta) (protoc.FileDescriptorSets, error) {
 	compileResult, err := compiler.Compile(meta.ProtoSet)
 	if err != nil {
@@ -317,193 +280,6 @@ func (r *runner) All(args []string, disableFormat, disableLint, fixFlag bool) er
 	}
 
 	return nil
-}
-
-func (r *runner) BreakDescriptorSet(args []string, outputPath string) error {
-	if outputPath == "" {
-		return newExitErrorf(255, "must set output-path")
-	}
-	return r.DescriptorSet(args, true, false, outputPath, false)
-}
-
-func (r *runner) DescriptorSet(args []string, includeImports bool, includeSourceInfo bool, outputPath string, tmp bool) (retErr error) {
-	if outputPath != "" && tmp {
-		return newExitErrorf(255, "can only set one of output-path, tmp")
-	}
-	meta, err := r.getMeta(args)
-	if err != nil {
-		return err
-	}
-	r.printAffectedFiles(meta)
-	fileDescriptorSets, err := r.compileFullControl(includeImports, includeSourceInfo, meta)
-	if err != nil {
-		return err
-	}
-	fileDescriptorSet, err := desc.MergeFileDescriptorSets(fileDescriptorSets.Unwrap())
-	if err != nil {
-		return err
-	}
-	var data []byte
-	if r.json {
-		buffer := bytes.NewBuffer(nil)
-		err = jsonpbMarshaler.Marshal(buffer, fileDescriptorSet)
-		data = buffer.Bytes()
-	} else {
-		data, err = proto.Marshal(fileDescriptorSet)
-	}
-	if err != nil {
-		return err
-	}
-	if outputPath == "" && !tmp {
-		_, err := r.output.Write(data)
-		return err
-	}
-	var file *os.File
-	if outputPath != "" {
-		file, err = os.Create(outputPath)
-	} else { // if tmp
-		file, err = ioutil.TempFile("", "prototool")
-	}
-	if err != nil {
-		return err
-	}
-	defer func() {
-		retErr = multierr.Append(retErr, file.Close())
-	}()
-	if _, err := file.Write(data); err != nil {
-		return err
-	}
-	if tmp {
-		if err := r.println(file.Name()); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (r *runner) BreakCheck(args []string, gitBranch string, descriptorSetPath string) error {
-	if gitBranch != "" && descriptorSetPath != "" {
-		return newExitErrorf(255, "can only set one of git-branch, descriptor-set-path")
-	}
-
-	toPackageSet, config, err := r.getPackageSetAndConfig(args)
-	if err != nil {
-		return err
-	}
-
-	var fromPackageSet *extract.PackageSet
-	if descriptorSetPath != "" {
-		fromPackageSet, err = r.getPackageSetForDescriptorSetPath(descriptorSetPath)
-		if err != nil {
-			return err
-		}
-	} else {
-		relDirPath := "."
-		// we check length 0 or 1 in cmd, similar to other commands
-		if len(args) == 1 {
-			relDirPath = args[0]
-		}
-		if filepath.IsAbs(relDirPath) {
-			return fmt.Errorf("input argument must be relative directory path: %s", relDirPath)
-		}
-
-		absDirPath, err := file.AbsClean(relDirPath)
-		if err != nil {
-			return err
-		}
-		absWorkDirPath, err := file.AbsClean(r.workDirPath)
-		if err != nil {
-			return err
-		}
-		if !strings.HasPrefix(absDirPath, absWorkDirPath) {
-			return fmt.Errorf("input directory must be within working directory: %s", relDirPath)
-		}
-
-		// this will purposefully fail if we are not at a git repository
-		cloneDirPath, err := git.TemporaryClone(r.logger, r.workDirPath, gitBranch)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			r.logger.Sugar().Debugf("removing %s", cloneDirPath)
-			_ = os.RemoveAll(cloneDirPath)
-		}()
-
-		fromPackageSet, _, err = r.cloneForWorkDirPath(cloneDirPath).getPackageSetAndConfigForRelDirPath(relDirPath)
-		if err != nil {
-			return err
-		}
-	}
-
-	failures, err := r.newBreakingRunner().Run(config.Break, fromPackageSet, toPackageSet)
-	if err != nil {
-		return err
-	}
-	if len(failures) > 0 {
-		if err := r.printFailuresForErrorFormat("message", "", nil, failures...); err != nil {
-			return err
-		}
-		return newExitErrorf(255, "")
-	}
-	return nil
-}
-
-func (r *runner) getPackageSetAndConfig(args []string) (*extract.PackageSet, settings.Config, error) {
-	meta, err := r.getMeta(args)
-	if err != nil {
-		return nil, settings.Config{}, err
-	}
-	r.printAffectedFiles(meta)
-	fileDescriptorSets, err := r.compile(false, true, false, meta)
-	if err != nil {
-		return nil, settings.Config{}, err
-	}
-	packageSet, err := r.getPackageSetForFileDescriptorSets(fileDescriptorSets.Unwrap()...)
-	if err != nil {
-		return nil, settings.Config{}, err
-	}
-	var config settings.Config
-	if meta != nil && meta.ProtoSet != nil {
-		config = meta.ProtoSet.Config
-	}
-	return packageSet, config, nil
-}
-
-func (r *runner) getPackageSetForDescriptorSetPath(descriptorSetPath string) (*extract.PackageSet, error) {
-	data, err := ioutil.ReadFile(descriptorSetPath)
-	if err != nil {
-		return nil, err
-	}
-	fileDescriptorSet := &descriptor.FileDescriptorSet{}
-	if err := proto.Unmarshal(data, fileDescriptorSet); err != nil {
-		return nil, err
-	}
-	return r.getPackageSetForFileDescriptorSets(fileDescriptorSet)
-}
-
-func (r *runner) getPackageSetForFileDescriptorSets(fileDescriptorSets ...*descriptor.FileDescriptorSet) (*extract.PackageSet, error) {
-	reflectPackageSet, err := reflect.NewPackageSet(fileDescriptorSets...)
-	if err != nil {
-		return nil, err
-	}
-	return extract.NewPackageSet(reflectPackageSet)
-}
-
-// we require a relative path (or no path) to be passed
-// this is largely because getMeta has special handling for "."
-func (r *runner) getPackageSetAndConfigForRelDirPath(relDirPath string) (*extract.PackageSet, settings.Config, error) {
-	dirPath := r.workDirPath
-	if relDirPath != "" && relDirPath != "." {
-		dirPath = filepath.Join(dirPath, relDirPath)
-	}
-	return r.getPackageSetAndConfig([]string{dirPath})
-}
-
-func (r *runner) newBreakingRunner() breaking.Runner {
-	runnerOptions := []breaking.RunnerOption{
-		breaking.RunnerWithLogger(r.logger),
-	}
-	return breaking.NewRunner(runnerOptions...)
 }
 
 func (r *runner) newDownloader(config settings.Config) (protoc.Downloader, error) {

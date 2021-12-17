@@ -55,9 +55,6 @@ type Runner interface {
 	Compile(args []string, dryRun bool) error
 	Gen(args []string, dryRun bool) error
 	All(args []string, disableFormat, disableLint, fix bool) error
-	BreakCheck(args []string, gitBranch string, descriptorSetPath string) error
-	BreakDescriptorSet(args []string, outputPath string) error
-	DescriptorSet(args []string, includeImports bool, includeSourceInfo bool, outputPath string, tmp bool) error
 }
 
 // RunnerOption is an option for a new Runner.
