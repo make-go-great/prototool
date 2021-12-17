@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/gofrs/flock v0.7.1
-	github.com/golang/protobuf v1.3.4
+	github.com/golang/protobuf v1.5.2
 	github.com/mitchellh/go-wordwrap v1.0.0
 	github.com/spf13/cobra v0.0.6
 	github.com/spf13/pflag v1.0.5
@@ -29,4 +29,5 @@ require (
 	golang.org/x/text v0.3.2 // indirect
 	golang.org/x/tools v0.0.0-20200311222014-c807066ff753 // indirect
 	google.golang.org/genproto v0.0.0-20200311144346-b662892dd51b // indirect
+	google.golang.org/protobuf v1.26.0 // indirect
 )
