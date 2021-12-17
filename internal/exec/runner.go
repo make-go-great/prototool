@@ -46,7 +46,6 @@ import (
 	"github.com/uber/prototool/internal/extract"
 	"github.com/uber/prototool/internal/file"
 	"github.com/uber/prototool/internal/git"
-	"github.com/uber/prototool/internal/grpc"
 	"github.com/uber/prototool/internal/protoc"
 	"github.com/uber/prototool/internal/reflect"
 	"github.com/uber/prototool/internal/settings"
@@ -318,88 +317,6 @@ func (r *runner) All(args []string, disableFormat, disableLint, fixFlag bool) er
 	}
 
 	return nil
-}
-
-func (r *runner) GRPC(args, headers []string, address, method, data, callTimeout, connectTimeout, keepaliveTime string, stdin bool, details bool, tls bool, insecure bool, cacert string, cert string, key string, serverName string) error {
-	if address == "" {
-		return newExitErrorf(255, "must set address")
-	}
-	if method == "" {
-		return newExitErrorf(255, "must set method")
-	}
-	if data == "" && !stdin {
-		return newExitErrorf(255, "must set one of data or stdin")
-	}
-	if data != "" && stdin {
-		return newExitErrorf(255, "must set only one of data or stdin")
-	}
-	if tls {
-		if insecure && (cacert != "" || cert != "" || key != "" || serverName != "") {
-			return newExitErrorf(255, "if insecure then cacert, cert, key, and server-name must not be specified")
-		} else if (cert != "") != (key != "") {
-			return newExitErrorf(255, "if cert is specified, key must be specified")
-		}
-	} else if insecure || cacert != "" || cert != "" || key != "" || serverName != "" {
-		return newExitErrorf(255, "tls must be specified if insecure, cacert, cert, key or server-name are specified")
-	}
-	reader := r.getInputReader(data, stdin)
-
-	parsedHeaders := make(map[string]string)
-	for _, header := range headers {
-		split := strings.SplitN(header, ":", 2)
-		if len(split) != 2 {
-			return fmt.Errorf("headers must be key:value but got %s", header)
-		}
-		parsedHeaders[split[0]] = split[1]
-	}
-	var parsedCallTimeout time.Duration
-	var parsedConnectTimeout time.Duration
-	var parsedKeepaliveTime time.Duration
-	var err error
-	if callTimeout != "" {
-		parsedCallTimeout, err = time.ParseDuration(callTimeout)
-		if err != nil {
-			return err
-		}
-	}
-	if connectTimeout != "" {
-		parsedConnectTimeout, err = time.ParseDuration(connectTimeout)
-		if err != nil {
-			return err
-		}
-	}
-	if keepaliveTime != "" {
-		parsedKeepaliveTime, err = time.ParseDuration(keepaliveTime)
-		if err != nil {
-			return err
-		}
-	}
-
-	meta, err := r.getMeta(args)
-	if err != nil {
-		return err
-	}
-	r.printAffectedFiles(meta)
-	fileDescriptorSets, err := r.compile(false, true, false, meta)
-	if err != nil {
-		return err
-	}
-	if len(fileDescriptorSets) == 0 {
-		return fmt.Errorf("no FileDescriptorSets returned")
-	}
-	return r.newGRPCHandler(
-		parsedHeaders,
-		parsedCallTimeout,
-		parsedConnectTimeout,
-		parsedKeepaliveTime,
-		details,
-		tls,
-		insecure,
-		cacert,
-		cert,
-		key,
-		serverName,
-	).Invoke(fileDescriptorSets.Unwrap(), address, method, reader, r.output)
 }
 
 func (r *runner) BreakDescriptorSet(args []string, outputPath string) error {
@@ -754,43 +671,6 @@ func (r *runner) newCreateHandler(pkg string) create.Handler {
 	return create.NewHandler(handlerOptions...)
 }
 
-func (r *runner) newGRPCHandler(
-	headers map[string]string,
-	callTimeout time.Duration,
-	connectTimeout time.Duration,
-	keepaliveTime time.Duration,
-	details bool,
-	tls bool,
-	insecure bool,
-	cacert string,
-	cert string,
-	key string,
-	serverName string,
-) grpc.Handler {
-	handlerOptions := []grpc.HandlerOption{
-		grpc.HandlerWithLogger(r.logger),
-	}
-	for key, value := range headers {
-		handlerOptions = append(handlerOptions, grpc.HandlerWithHeader(key, value))
-	}
-	if callTimeout != 0 {
-		handlerOptions = append(handlerOptions, grpc.HandlerWithCallTimeout(callTimeout))
-	}
-	if connectTimeout != 0 {
-		handlerOptions = append(handlerOptions, grpc.HandlerWithConnectTimeout(connectTimeout))
-	}
-	if keepaliveTime != 0 {
-		handlerOptions = append(handlerOptions, grpc.HandlerWithKeepaliveTime(keepaliveTime))
-	}
-	if details {
-		handlerOptions = append(handlerOptions, grpc.HandlerWithDetails())
-	}
-	if tls {
-		handlerOptions = append(handlerOptions, grpc.HandlerWithTLS(insecure, cacert, cert, key, serverName))
-	}
-	return grpc.NewHandler(handlerOptions...)
-}
-
 type meta struct {
 	ProtoSet *file.ProtoSet
 	// this will be empty if not in dir mode
@@ -911,13 +791,6 @@ func (r *runner) println(s string) error {
 	}
 	_, err := fmt.Fprintln(r.output, s)
 	return err
-}
-
-func (r *runner) getInputReader(data string, stdin bool) io.Reader {
-	if stdin {
-		return r.input
-	}
-	return bytes.NewReader([]byte(data))
 }
 
 func newExitErrorf(code int, format string, args ...interface{}) *ExitError {

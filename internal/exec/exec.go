@@ -55,7 +55,6 @@ type Runner interface {
 	Compile(args []string, dryRun bool) error
 	Gen(args []string, dryRun bool) error
 	All(args []string, disableFormat, disableLint, fix bool) error
-	GRPC(args, headers []string, address, method, data, callTimeout, connectTimeout, keepaliveTime string, stdin bool, details bool, tls bool, insecure bool, cacert string, cert string, key string, serverName string) error
 	InspectPackages(args []string) error
 	InspectPackageDeps(args []string, name string) error
 	InspectPackageImporters(args []string, name string) error
