@@ -58,7 +58,6 @@ import (
 	"github.com/uber/prototool/internal/vars"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
-	"gopkg.in/yaml.v2"
 )
 
 var jsonpbMarshaler = &jsonpb.Marshaler{}
@@ -311,167 +310,6 @@ func (r *runner) doProtocCommands(compiler protoc.Compiler, meta *meta) error {
 	return nil
 }
 
-func (r *runner) Lint(args []string, listAllLinters bool, listLinters bool, listAllLintGroups bool, listLintGroup string, diffLintGroups string, generateIgnores bool) error {
-	if moreThanOneSet(listAllLinters, listLinters, listAllLintGroups, listLintGroup != "", diffLintGroups != "", generateIgnores) {
-		return newExitErrorf(255, "can only set one of list-all-linters, list-linters, list-all-lint-groups, list-lint-group, diff-lint-groups, update-ignores")
-	}
-	if listAllLintGroups {
-		return r.listAllLintGroups()
-	}
-	if diffLintGroups != "" {
-		return r.diffLintGroups(diffLintGroups)
-	}
-	meta, err := r.getMeta(args)
-	if err != nil {
-		return err
-	}
-	if listAllLinters {
-		return r.listAllLinters(meta)
-	}
-	if listLinters {
-		return r.listLinters(meta)
-	}
-	if listLintGroup != "" {
-		return r.listLintGroup(meta, listLintGroup)
-	}
-	r.printAffectedFiles(meta)
-	if _, err := r.compile(false, false, false, meta); err != nil {
-		return err
-	}
-	if generateIgnores {
-		return r.generateIgnores(meta)
-	}
-	return r.lint(meta)
-}
-
-func (r *runner) lint(meta *meta) error {
-	failures, err := r.newLintRunner().Run(meta.ProtoSet, false)
-	if err != nil {
-		return err
-	}
-	if err := r.printFailures("", meta, failures...); err != nil {
-		return err
-	}
-	if len(failures) > 0 {
-		return newExitErrorf(255, "")
-	}
-	return nil
-}
-
-func (r *runner) generateIgnores(meta *meta) error {
-	meta.ProtoSet.Config.Lint.IgnoreIDToFilePaths = make(map[string][]string)
-
-	failures, err := r.newLintRunner().Run(meta.ProtoSet, true)
-	if err != nil {
-		return err
-	}
-	if len(failures) == 0 {
-		return nil
-	}
-
-	idToFiles := make(map[string]map[string]struct{})
-	for _, failure := range failures {
-		if failure.LintID != "" && failure.Filename != "" {
-			rel, err := filepath.Rel(meta.ProtoSet.Config.DirPath, failure.Filename)
-			if err != nil {
-				return err
-			}
-			if _, ok := idToFiles[failure.LintID]; !ok {
-				idToFiles[failure.LintID] = make(map[string]struct{})
-			}
-			idToFiles[failure.LintID][rel] = struct{}{}
-		}
-	}
-
-	ids := make([]string, 0, len(idToFiles))
-	for id := range idToFiles {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
-
-	externalConfig := &settings.ExternalConfig{}
-
-	for _, id := range ids {
-		filesMap := idToFiles[id]
-		files := make([]string, 0, len(filesMap))
-		for file := range filesMap {
-			files = append(files, file)
-		}
-		sort.Strings(files)
-		externalConfig.Lint.Ignores = append(
-			externalConfig.Lint.Ignores,
-			struct {
-				ID    string   `json:"id,omitempty" yaml:"id,omitempty"`
-				Files []string `json:"files,omitempty" yaml:"files,omitempty"`
-			}{
-				ID:    id,
-				Files: files,
-			},
-		)
-	}
-
-	data, err := yaml.Marshal(externalConfig)
-	if err != nil {
-		return err
-	}
-	return r.println(strings.TrimSpace(string(data)))
-}
-
-func (r *runner) listLinters(meta *meta) error {
-	linters, err := lint.GetLinters(meta.ProtoSet.Config.Lint)
-	if err != nil {
-		return err
-	}
-	return r.printLinters(meta.ProtoSet.Config.Lint, linters)
-}
-
-func (r *runner) listAllLinters(meta *meta) error {
-	return r.printLinters(meta.ProtoSet.Config.Lint, lint.AllLinters)
-}
-
-func (r *runner) listLintGroup(meta *meta, group string) error {
-	linters, ok := lint.GroupToLinters[strings.ToLower(group)]
-	if !ok {
-		return newExitErrorf(255, "unknown lint group: %s", strings.ToLower(group))
-	}
-	return r.printLinters(meta.ProtoSet.Config.Lint, linters)
-}
-
-func (r *runner) listAllLintGroups() error {
-	groups := make([]string, 0, len(lint.GroupToLinters))
-	for group := range lint.GroupToLinters {
-		groups = append(groups, group)
-	}
-	sort.Strings(groups)
-	for _, group := range groups {
-		if err := r.println(group); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (r *runner) diffLintGroups(groups string) error {
-	split := strings.Split(groups, ",")
-	if len(split) != 2 {
-		return fmt.Errorf("argument to --diff-lint-groups must be two lint groups separated by '.', for example google,uber2")
-	}
-	firstLinterIDs, err := getLinterIDs(split[0])
-	if err != nil {
-		return err
-	}
-	secondLinterIDs, err := getLinterIDs(split[1])
-	if err != nil {
-		return err
-	}
-	for _, s := range diffMaps(firstLinterIDs, secondLinterIDs) {
-		if err := r.println(s); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (r *runner) Format(args []string, overwrite, diffMode, lintMode, fixFlag bool) error {
 	if moreThanOneSet(overwrite, diffMode, lintMode) {
 		return newExitErrorf(255, "can only set one of overwrite, diff, lint")
@@ -553,7 +391,7 @@ func (r *runner) formatFile(overwrite bool, diffMode bool, lintMode bool, fix in
 			}
 			return false, nil
 		}
-		//below is !overwrite && !lintMode && !diffMode
+		// below is !overwrite && !lintMode && !diffMode
 		if _, err := io.Copy(r.output, bytes.NewReader(data)); err != nil {
 			return false, err
 		}
@@ -585,9 +423,6 @@ func (r *runner) All(args []string, disableFormat, disableLint, fixFlag bool) er
 	}
 	if _, err := r.compile(true, false, false, meta); err != nil {
 		return err
-	}
-	if !disableLint {
-		return r.lint(meta)
 	}
 	return nil
 }
