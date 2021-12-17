@@ -102,12 +102,13 @@ func getRootCommand(develMode bool, exitCodeAddr *int, args []string, stdin io.R
 	rootCmd.AddCommand(compileCmdTemplate.Build(develMode, exitCodeAddr, stdin, stdout, stderr, flags))
 	rootCmd.AddCommand(filesCmdTemplate.Build(develMode, exitCodeAddr, stdin, stdout, stderr, flags))
 	rootCmd.AddCommand(generateCmdTemplate.Build(develMode, exitCodeAddr, stdin, stdout, stderr, flags))
-	rootCmd.AddCommand(grpcCmdTemplate.Build(develMode, exitCodeAddr, stdin, stdout, stderr, flags))
-	rootCmd.AddCommand(descriptorSetCmdTemplate.Build(develMode, exitCodeAddr, stdin, stdout, stderr, flags))
+
 	configCmd := &cobra.Command{Use: "config", Short: "Interact with configuration files."}
 	configCmd.AddCommand(configInitCmdTemplate.Build(develMode, exitCodeAddr, stdin, stdout, stderr, flags))
 	rootCmd.AddCommand(configCmd)
+
 	rootCmd.AddCommand(versionCmdTemplate.Build(develMode, exitCodeAddr, stdin, stdout, stderr, flags))
+
 	cacheCmd := &cobra.Command{Use: "cache", Short: "Interact with the cache."}
 	cacheCmd.AddCommand(cacheUpdateCmdTemplate.Build(develMode, exitCodeAddr, stdin, stdout, stderr, flags))
 	cacheCmd.AddCommand(cacheDeleteCmdTemplate.Build(develMode, exitCodeAddr, stdin, stdout, stderr, flags))

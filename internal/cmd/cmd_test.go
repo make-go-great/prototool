@@ -150,47 +150,6 @@ func TestVersionJSON(t *testing.T) {
 	assertRegexp(t, false, false, 0, fmt.Sprintf(`(?s){.*"version":.*"%s",.*"default_protoc_version":.*"%s".*}`, vars.Version, vars.DefaultProtocVersion), "version", "--json")
 }
 
-func TestDescriptorSet(t *testing.T) {
-	t.Parallel()
-	for _, includeSourceInfo := range []bool{false, true} {
-		assertDescriptorSet(
-			t,
-			true,
-			"testdata/foo",
-			false,
-			includeSourceInfo,
-			"success.proto",
-			"bar/dep.proto",
-		)
-		assertDescriptorSet(
-			t,
-			true,
-			"testdata/foo/bar",
-			false,
-			includeSourceInfo,
-			"bar/dep.proto",
-		)
-		assertDescriptorSet(
-			t,
-			true,
-			"testdata/foo",
-			true,
-			includeSourceInfo,
-			"success.proto",
-			"bar/dep.proto",
-			"google/protobuf/timestamp.proto",
-		)
-		assertDescriptorSet(
-			t,
-			true,
-			"testdata/foo/bar",
-			true,
-			includeSourceInfo,
-			"bar/dep.proto",
-		)
-	}
-}
-
 func TestFiles(t *testing.T) {
 	assertExact(t, false, false, 0, `testdata/foo/bar/dep.proto
 testdata/foo/success.proto`, "files", "testdata/foo")
