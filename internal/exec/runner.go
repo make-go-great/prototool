@@ -33,7 +33,6 @@ import (
 	"runtime"
 	"sort"
 	"strings"
-	"text/scanner"
 	"text/tabwriter"
 	"time"
 
@@ -44,13 +43,10 @@ import (
 	"github.com/uber/prototool/internal/cfginit"
 	"github.com/uber/prototool/internal/create"
 	"github.com/uber/prototool/internal/desc"
-	"github.com/uber/prototool/internal/diff"
 	"github.com/uber/prototool/internal/extract"
 	"github.com/uber/prototool/internal/file"
-	"github.com/uber/prototool/internal/format"
 	"github.com/uber/prototool/internal/git"
 	"github.com/uber/prototool/internal/grpc"
-	"github.com/uber/prototool/internal/lint"
 	"github.com/uber/prototool/internal/protoc"
 	"github.com/uber/prototool/internal/reflect"
 	"github.com/uber/prototool/internal/settings"
@@ -310,120 +306,17 @@ func (r *runner) doProtocCommands(compiler protoc.Compiler, meta *meta) error {
 	return nil
 }
 
-func (r *runner) Format(args []string, overwrite, diffMode, lintMode, fixFlag bool) error {
-	if moreThanOneSet(overwrite, diffMode, lintMode) {
-		return newExitErrorf(255, "can only set one of overwrite, diff, lint")
-	}
-	meta, err := r.getMeta(args)
-	if err != nil {
-		return err
-	}
-	r.printAffectedFiles(meta)
-	if _, err := r.compile(false, false, false, meta); err != nil {
-		return err
-	}
-	return r.format(overwrite, diffMode, lintMode, getFormatFixValue(fixFlag, meta), getFormatFileHeaderValue(fixFlag, meta), getFormatJavaPackagePrefixValue(fixFlag, meta), meta)
-}
-
-func (r *runner) format(overwrite, diffMode, lintMode bool, fix int, fileHeader string, javaPackagePrefix string, meta *meta) error {
-	success := true
-	for dirPath, protoFiles := range meta.ProtoSet.DirPathToFiles {
-		// skip those files not under the directory
-		if !strings.HasPrefix(dirPath, meta.ProtoSet.DirPath) {
-			continue
-		}
-		for _, protoFile := range protoFiles {
-			fileSuccess, err := r.formatFile(overwrite, diffMode, lintMode, fix, fileHeader, javaPackagePrefix, meta, protoFile)
-			if err != nil {
-				return err
-			}
-			if !fileSuccess {
-				success = false
-			}
-		}
-	}
-	if !success {
-		return newExitErrorf(255, "")
-	}
-	return nil
-}
-
-// return true if there was no unexpected diff and we should exit with 0
-// return false if we should exit with non-zero
-// if false and nil error, we will return an ExitError outside of this function
-func (r *runner) formatFile(overwrite bool, diffMode bool, lintMode bool, fix int, fileHeader string, javaPackagePrefix string, meta *meta, protoFile *file.ProtoFile) (bool, error) {
-	absSingleFilename, err := file.AbsClean(meta.SingleFilename)
-	if err != nil {
-		return false, err
-	}
-	// we are not concerned with the current file
-	if meta.SingleFilename != "" && protoFile.Path != absSingleFilename {
-		return true, nil
-	}
-	input, err := ioutil.ReadFile(protoFile.Path)
-	if err != nil {
-		return false, err
-	}
-	data, failures, err := r.newTransformer(fix, fileHeader, javaPackagePrefix).Transform(protoFile.Path, input)
-	if err != nil {
-		return false, err
-	}
-	if len(failures) > 0 {
-		return false, r.printFailures(protoFile.DisplayPath, meta, failures...)
-	}
-	if !bytes.Equal(input, data) {
-		if overwrite {
-			// 0 exit code in overwrite case
-			return true, ioutil.WriteFile(protoFile.Path, data, os.ModePerm)
-		}
-		if lintMode {
-			return false, r.printFailures("", meta, text.NewFailuref(scanner.Position{
-				Filename: protoFile.DisplayPath,
-			}, "FORMAT_DIFF", "Format returned a diff."))
-		}
-		if diffMode {
-			d, err := diff.Do(input, data, protoFile.DisplayPath)
-			if err != nil {
-				return false, err
-			}
-			if _, err := io.Copy(r.output, bytes.NewReader(d)); err != nil {
-				return false, err
-			}
-			return false, nil
-		}
-		// below is !overwrite && !lintMode && !diffMode
-		if _, err := io.Copy(r.output, bytes.NewReader(data)); err != nil {
-			return false, err
-		}
-		// there was a diff, return non-zero exit code
-		return false, nil
-	}
-	// we still print the formatted file to stdout
-	if !overwrite && !lintMode && !diffMode {
-		if _, err := io.Copy(r.output, bytes.NewReader(data)); err != nil {
-			return false, err
-		}
-	}
-	return true, nil
-}
-
 func (r *runner) All(args []string, disableFormat, disableLint, fixFlag bool) error {
 	meta, err := r.getMeta(args)
 	if err != nil {
 		return err
 	}
+
 	r.printAffectedFiles(meta)
 	if _, err := r.compile(false, false, false, meta); err != nil {
 		return err
 	}
-	if !disableFormat {
-		if err := r.format(true, false, false, getFormatFixValue(fixFlag, meta), getFormatFileHeaderValue(fixFlag, meta), getFormatJavaPackagePrefixValue(fixFlag, meta), meta); err != nil {
-			return err
-		}
-	}
-	if _, err := r.compile(true, false, false, meta); err != nil {
-		return err
-	}
+
 	return nil
 }
 
@@ -844,26 +737,6 @@ func (r *runner) newCompiler(
 	return protoc.NewCompiler(compilerOptions...), nil
 }
 
-func (r *runner) newLintRunner() lint.Runner {
-	return lint.NewRunner(
-		lint.RunnerWithLogger(r.logger),
-	)
-}
-
-func (r *runner) newTransformer(fix int, fileHeader string, javaPackagePrefix string) format.Transformer {
-	transformerOptions := []format.TransformerOption{format.TransformerWithLogger(r.logger)}
-	if fix != format.FixNone {
-		transformerOptions = append(transformerOptions, format.TransformerWithFix(fix))
-	}
-	if fileHeader != "" {
-		transformerOptions = append(transformerOptions, format.TransformerWithFileHeader(fileHeader))
-	}
-	if javaPackagePrefix != "" {
-		transformerOptions = append(transformerOptions, format.TransformerWithJavaPackagePrefix(javaPackagePrefix))
-	}
-	return format.NewTransformer(transformerOptions...)
-}
-
 func (r *runner) newCreateHandler(pkg string) create.Handler {
 	handlerOptions := []create.HandlerOption{create.HandlerWithLogger(r.logger)}
 	if pkg != "" {
@@ -1020,17 +893,6 @@ func (r *runner) printFailuresForErrorFormat(errorFormat string, filename string
 	return bufWriter.Flush()
 }
 
-func (r *runner) printLinters(config settings.LintConfig, linters []lint.Linter) error {
-	sort.Slice(linters, func(i int, j int) bool { return linters[i].ID() < linters[j].ID() })
-	tabWriter := newTabWriter(r.output)
-	for _, linter := range linters {
-		if _, err := fmt.Fprintf(tabWriter, "%s\t%s\n", linter.ID(), linter.Purpose(config)); err != nil {
-			return err
-		}
-	}
-	return tabWriter.Flush()
-}
-
 func (r *runner) printAffectedFiles(meta *meta) {
 	for dirPath, files := range meta.ProtoSet.DirPathToFiles {
 		// skip those files not under the directory
@@ -1069,73 +931,11 @@ func newTabWriter(writer io.Writer) *tabwriter.Writer {
 	return tabwriter.NewWriter(writer, 0, 0, 2, ' ', 0)
 }
 
-func moreThanOneSet(values ...bool) bool {
-	numSet := 0
-	for _, value := range values {
-		if value {
-			numSet++
-		}
-	}
-	return numSet > 1
-}
-
-func getFormatFixValue(fixFlag bool, meta *meta) int {
-	if !fixFlag {
-		return format.FixNone
-	}
-	if meta.ProtoSet.Config.Lint.Group == "uber2" {
-		return format.FixV2
-	}
-	return format.FixV1
-}
-
-func getFormatFileHeaderValue(fixFlag bool, meta *meta) string {
-	if !fixFlag {
-		return ""
-	}
-	return meta.ProtoSet.Config.Lint.FileHeader
-}
-
-func getFormatJavaPackagePrefixValue(fixFlag bool, meta *meta) string {
-	if !fixFlag {
-		return ""
-	}
-	return meta.ProtoSet.Config.Lint.JavaPackagePrefix
-}
-
 func extractSortPackageNames(m map[string]*extract.Package) []string {
 	s := make([]string, 0, len(m))
 	for key := range m {
 		if key != "" {
 			s = append(s, key)
-		}
-	}
-	sort.Strings(s)
-	return s
-}
-
-func getLinterIDs(group string) (map[string]struct{}, error) {
-	linters, ok := lint.GroupToLinters[strings.ToLower(group)]
-	if !ok {
-		return nil, newExitErrorf(255, "unknown lint group: %s", strings.ToLower(group))
-	}
-	m := make(map[string]struct{})
-	for _, linter := range linters {
-		m[linter.ID()] = struct{}{}
-	}
-	return m, nil
-}
-
-func diffMaps(one map[string]struct{}, two map[string]struct{}) []string {
-	var s []string
-	for key := range one {
-		if _, ok := two[key]; !ok {
-			s = append(s, "< "+key)
-		}
-	}
-	for key := range two {
-		if _, ok := one[key]; !ok {
-			s = append(s, "> "+key)
 		}
 	}
 	sort.Strings(s)
