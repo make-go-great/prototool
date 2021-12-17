@@ -381,33 +381,6 @@ func (r *runner) DescriptorSet(args []string, includeImports bool, includeSource
 	return nil
 }
 
-func (r *runner) InspectPackages(args []string) error {
-	packageSet, _, err := r.getPackageSetAndConfig(args)
-	if err != nil {
-		return err
-	}
-	if packageSet == nil {
-		return nil
-	}
-	return r.printPackageNames(packageSet.PackageNameToPackage())
-}
-
-func (r *runner) InspectPackageDeps(args []string, name string) error {
-	pkg, err := r.getPackage(args, name)
-	if err != nil {
-		return err
-	}
-	return r.printPackageNames(pkg.DependencyNameToDependency())
-}
-
-func (r *runner) InspectPackageImporters(args []string, name string) error {
-	pkg, err := r.getPackage(args, name)
-	if err != nil {
-		return err
-	}
-	return r.printPackageNames(pkg.ImporterNameToImporter())
-}
-
 func (r *runner) BreakCheck(args []string, gitBranch string, descriptorSetPath string) error {
 	if gitBranch != "" && descriptorSetPath != "" {
 		return newExitErrorf(255, "can only set one of git-branch, descriptor-set-path")
@@ -514,33 +487,6 @@ func (r *runner) getPackageSetForFileDescriptorSets(fileDescriptorSets ...*descr
 		return nil, err
 	}
 	return extract.NewPackageSet(reflectPackageSet)
-}
-
-func (r *runner) getPackage(args []string, name string) (*extract.Package, error) {
-	if name == "" {
-		return nil, newExitErrorf(255, "must set name")
-	}
-	packageSet, _, err := r.getPackageSetAndConfig(args)
-	if err != nil {
-		return nil, err
-	}
-	if packageSet == nil {
-		return nil, fmt.Errorf("package not found: %s", name)
-	}
-	pkg, ok := packageSet.PackageNameToPackage()[name]
-	if !ok {
-		return nil, fmt.Errorf("package not found: %s", name)
-	}
-	return pkg, nil
-}
-
-func (r *runner) printPackageNames(m map[string]*extract.Package) error {
-	for _, packageName := range extractSortPackageNames(m) {
-		if err := r.println(packageName); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // we require a relative path (or no path) to be passed
@@ -802,15 +748,4 @@ func newExitErrorf(code int, format string, args ...interface{}) *ExitError {
 
 func newTabWriter(writer io.Writer) *tabwriter.Writer {
 	return tabwriter.NewWriter(writer, 0, 0, 2, ' ', 0)
-}
-
-func extractSortPackageNames(m map[string]*extract.Package) []string {
-	s := make([]string, 0, len(m))
-	for key := range m {
-		if key != "" {
-			s = append(s, key)
-		}
-	}
-	sort.Strings(s)
-	return s
 }

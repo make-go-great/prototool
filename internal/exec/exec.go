@@ -55,9 +55,6 @@ type Runner interface {
 	Compile(args []string, dryRun bool) error
 	Gen(args []string, dryRun bool) error
 	All(args []string, disableFormat, disableLint, fix bool) error
-	InspectPackages(args []string) error
-	InspectPackageDeps(args []string, name string) error
-	InspectPackageImporters(args []string, name string) error
 	BreakCheck(args []string, gitBranch string, descriptorSetPath string) error
 	BreakDescriptorSet(args []string, outputPath string) error
 	DescriptorSet(args []string, includeImports bool, includeSourceInfo bool, outputPath string, tmp bool) error
