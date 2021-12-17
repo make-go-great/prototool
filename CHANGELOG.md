@@ -5,9 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.11.0] - 2021-12-18
 
-- No changes yet.
+- Remove lint, format, break check commands as I don't use it
+- Bump latest github.com/golang/protobuf v1.5.2 with google.golang.org/grpc v1.32.0
 
 ## [1.10.1] - 2021-12-11
 
