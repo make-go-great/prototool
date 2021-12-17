@@ -3,8 +3,6 @@ module github.com/uber/prototool
 go 1.17
 
 require (
-	github.com/emicklei/proto v1.9.0
-	github.com/gobuffalo/flect v0.2.1
 	github.com/gofrs/flock v0.7.1
 	github.com/golang/protobuf v1.3.4
 	github.com/mitchellh/go-wordwrap v1.0.0
