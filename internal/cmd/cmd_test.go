@@ -28,15 +28,11 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/uber/prototool/internal/lint"
 	"github.com/uber/prototool/internal/settings"
 	"github.com/uber/prototool/internal/vars"
 )
@@ -168,20 +164,6 @@ func TestGenerateDescriptorSetSameDirAsConfigFile(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func assertLinters(t *testing.T, linters []lint.Linter, args ...string) {
-	linterIDs := make([]string, 0, len(linters))
-	for _, linter := range linters {
-		linterIDs = append(linterIDs, linter.ID())
-	}
-	sort.Strings(linterIDs)
-	assertDo(t, true, true, 0, strings.Join(linterIDs, "\n"), args...)
-}
-
-func assertLinterIDs(t *testing.T, linterIDs []string, args ...string) {
-	sort.Strings(linterIDs)
-	assertDo(t, true, true, 0, strings.Join(linterIDs, "\n"), args...)
-}
-
 func assertDoCompileFiles(t *testing.T, expectSuccess bool, asJSON bool, expectedLinePrefixes string, filePaths ...string) {
 	lines := getCleanLines(expectedLinePrefixes)
 	expectedExitCode := 0
@@ -193,75 +175,6 @@ func assertDoCompileFiles(t *testing.T, expectSuccess bool, asJSON bool, expecte
 		cmd = append(cmd, "--json")
 	}
 	assertDo(t, true, true, expectedExitCode, strings.Join(lines, "\n"), append(cmd, filePaths...)...)
-}
-
-func assertDoCreateFile(t *testing.T, expectSuccess bool, remove bool, filePath string, pkgOverride string, expectedFileData string) {
-	assert.NoError(t, os.MkdirAll(filepath.Dir(filePath), 0755))
-	if remove {
-		_ = os.Remove(filePath)
-	}
-	args := []string{"create", filePath}
-	if pkgOverride != "" {
-		args = append(args, "--package", pkgOverride)
-	}
-	_, exitCode := testDo(t, false, false, args...)
-	if expectSuccess {
-		assert.Equal(t, 0, exitCode)
-		fileData, err := ioutil.ReadFile(filePath)
-		assert.NoError(t, err)
-		assert.Equal(t, expectedFileData, string(fileData))
-	} else {
-		assert.NotEqual(t, 0, exitCode)
-	}
-}
-
-func assertDoLintFile(t *testing.T, expectSuccess bool, expectedLinePrefixesWithoutFile string, filePath string, args ...string) {
-	lines := getCleanLines(expectedLinePrefixesWithoutFile)
-	for i, line := range lines {
-		lines[i] = filePath + ":" + line
-	}
-	expectedExitCode := 0
-	if !expectSuccess {
-		expectedExitCode = 255
-	}
-	assertDo(t, true, true, expectedExitCode, strings.Join(lines, "\n"), append([]string{"lint", filePath}, args...)...)
-}
-
-func assertDoLintFiles(t *testing.T, expectSuccess bool, expectedLinePrefixes string, filePaths ...string) {
-	lines := getCleanLines(expectedLinePrefixes)
-	expectedExitCode := 0
-	if !expectSuccess {
-		expectedExitCode = 255
-	}
-	assertDo(t, true, true, expectedExitCode, strings.Join(lines, "\n"), append([]string{"lint"}, filePaths...)...)
-}
-
-func assertDescriptorSet(t *testing.T, expectSuccess bool, dirOrFile string, includeImports bool, includeSourceInfo bool, expectedNames ...string) {
-	args := []string{"descriptor-set", "--cache-path", "testcache"}
-	if includeImports {
-		args = append(args, "--include-imports")
-	}
-	if includeSourceInfo {
-		args = append(args, "--include-source-info")
-	}
-	args = append(args, dirOrFile)
-	expectedExitCode := 0
-	if !expectSuccess {
-		expectedExitCode = 255
-	}
-	buffer := bytes.NewBuffer(nil)
-	exitCode := do(true, args, os.Stdin, buffer, buffer)
-	assert.Equal(t, expectedExitCode, exitCode)
-
-	fileDescriptorSet := &descriptor.FileDescriptorSet{}
-	assert.NoError(t, proto.Unmarshal(buffer.Bytes(), fileDescriptorSet), buffer.String())
-	names := make([]string, 0, len(fileDescriptorSet.File))
-	for _, fileDescriptorProto := range fileDescriptorSet.File {
-		names = append(names, fileDescriptorProto.GetName())
-	}
-	sort.Strings(expectedNames)
-	sort.Strings(names)
-	assert.Equal(t, expectedNames, names)
 }
 
 func assertRegexp(t *testing.T, withCachePath bool, extraErrorFormat bool, expectedExitCode int, expectedRegexp string, args ...string) {
