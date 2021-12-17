@@ -140,16 +140,6 @@ func TestInit(t *testing.T) {
 	assertDo(t, false, false, 1, fmt.Sprintf("%s already exists", filepath.Join(tmpDir, settings.DefaultConfigFilename)), "config", "init", tmpDir)
 }
 
-func TestGoldenFormat(t *testing.T) {
-	t.Parallel()
-	assertGoldenFormat(t, false, false, "testdata/format/proto3/foo/bar/bar.proto")
-	assertGoldenFormat(t, false, false, "testdata/format/proto2/foo/bar/bar_proto2.proto")
-	assertGoldenFormat(t, false, false, "testdata/format/proto3/foo/foo.proto")
-	assertGoldenFormat(t, false, false, "testdata/format/proto2/foo/foo_proto2.proto")
-	assertGoldenFormat(t, false, true, "testdata/format-fix/foo.proto")
-	assertGoldenFormat(t, false, true, "testdata/format-fix-v2/foo.proto")
-}
-
 func TestCreate(t *testing.T) {
 	t.Parallel()
 	// package override with also matching shorter override "a"
@@ -711,23 +701,6 @@ func assertDoLintFiles(t *testing.T, expectSuccess bool, expectedLinePrefixes st
 		expectedExitCode = 255
 	}
 	assertDo(t, true, true, expectedExitCode, strings.Join(lines, "\n"), append([]string{"lint"}, filePaths...)...)
-}
-
-func assertGoldenFormat(t *testing.T, expectSuccess bool, fix bool, filePath string) {
-	args := []string{"format"}
-	if fix {
-		args = append(args, "--fix")
-	}
-	args = append(args, filePath)
-	output, exitCode := testDo(t, true, true, args...)
-	expectedExitCode := 0
-	if !expectSuccess {
-		expectedExitCode = 255
-	}
-	assert.Equal(t, expectedExitCode, exitCode)
-	golden, err := ioutil.ReadFile(filePath + ".golden")
-	assert.NoError(t, err)
-	assert.Equal(t, strings.TrimSpace(string(golden)), output)
 }
 
 func assertDescriptorSet(t *testing.T, expectSuccess bool, dirOrFile string, includeImports bool, includeSourceInfo bool, expectedNames ...string) {

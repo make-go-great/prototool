@@ -102,7 +102,6 @@ func getRootCommand(develMode bool, exitCodeAddr *int, args []string, stdin io.R
 	rootCmd.AddCommand(compileCmdTemplate.Build(develMode, exitCodeAddr, stdin, stdout, stderr, flags))
 	rootCmd.AddCommand(createCmdTemplate.Build(develMode, exitCodeAddr, stdin, stdout, stderr, flags))
 	rootCmd.AddCommand(filesCmdTemplate.Build(develMode, exitCodeAddr, stdin, stdout, stderr, flags))
-	rootCmd.AddCommand(formatCmdTemplate.Build(develMode, exitCodeAddr, stdin, stdout, stderr, flags))
 	rootCmd.AddCommand(generateCmdTemplate.Build(develMode, exitCodeAddr, stdin, stdout, stderr, flags))
 	rootCmd.AddCommand(grpcCmdTemplate.Build(develMode, exitCodeAddr, stdin, stdout, stderr, flags))
 	rootCmd.AddCommand(descriptorSetCmdTemplate.Build(develMode, exitCodeAddr, stdin, stdout, stderr, flags))
