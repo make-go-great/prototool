@@ -109,7 +109,6 @@ func getRootCommand(develMode bool, exitCodeAddr *int, args []string, stdin io.R
 	configCmd := &cobra.Command{Use: "config", Short: "Interact with configuration files."}
 	configCmd.AddCommand(configInitCmdTemplate.Build(develMode, exitCodeAddr, stdin, stdout, stderr, flags))
 	rootCmd.AddCommand(configCmd)
-	rootCmd.AddCommand(lintCmdTemplate.Build(develMode, exitCodeAddr, stdin, stdout, stderr, flags))
 	rootCmd.AddCommand(versionCmdTemplate.Build(develMode, exitCodeAddr, stdin, stdout, stderr, flags))
 	cacheCmd := &cobra.Command{Use: "cache", Short: "Interact with the cache."}
 	cacheCmd.AddCommand(cacheUpdateCmdTemplate.Build(develMode, exitCodeAddr, stdin, stdout, stderr, flags))
